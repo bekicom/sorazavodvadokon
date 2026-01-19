@@ -6,6 +6,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use("/api/global-products", require("./routes/globalProduct.routes"));
+/* ================================
+   🌐 API ROUTES
+================================ */
+
+// Global product + shop order (bitta routerda)
+app.use("/api", require("./routes/globalProduct.routes"));
 
 module.exports = app;

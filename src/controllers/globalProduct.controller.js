@@ -172,3 +172,23 @@ exports.syncFromFactory = async (req, res) => {
     });
   }
 };
+exports.getProductsForShop = async (req, res) => {
+  try {
+    const products = await GlobalProduct.find({  })
+      .select("_id name birlik qty category")
+      .sort({ name: 1 })
+      .lean();
+
+    res.json({
+      ok: true,
+      count: products.length,
+      data: products,
+    });
+  } catch (err) {
+    console.error("getProductsForShop error:", err);
+    res.status(500).json({
+      ok: false,
+      message: "Server xatosi",
+    });
+  }
+};
