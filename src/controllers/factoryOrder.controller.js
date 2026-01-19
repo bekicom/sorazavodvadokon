@@ -9,6 +9,17 @@ exports.confirmFactoryOrder = async (req, res) => {
     const { id } = req.params;
 
     /* =========================
+       0️⃣ ENV TEKSHIRUV
+    ========================= */
+    const LOCAL_API = process.env.LOCAL_API_URL;
+    if (!LOCAL_API) {
+      return res.status(500).json({
+        ok: false,
+        message: "LOCAL_API_URL .env da sozlanmagan",
+      });
+    }
+
+    /* =========================
        1️⃣ ORDERNI OLAMIZ
     ========================= */
     const order = await ShopOrder.findById(id);
@@ -29,19 +40,38 @@ exports.confirmFactoryOrder = async (req, res) => {
     /* =========================
        2️⃣ LOCAL ZAVOD OMBORGA MINUS
     ========================= */
-    const localResponse = await axios.post(
-      "http://localhost:8060/api/main-warehouse/minus",
-      {
-        items: order.items.map((i) => ({
-          kategoriya_nomi: i.product_name,
-          miqdor: i.qty,
-        })),
-        reason: `Shop zakas #${order.order_no}`,
-      },
-    );
+    let localResponse;
+    try {
+      localResponse = await axios.post(
+        `${LOCAL_API}/api/main-warehouse/minus`,
+        {
+          items: order.items.map((i) => ({
+            kategoriya_nomi: i.product_name,
+            miqdor: i.qty,
+          })),
+          reason: `Shop zakas #${order.order_no}`,
+        },
+        {
+          timeout: 10000, // 10s
+        },
+      );
+    } catch (apiErr) {
+      console.error(
+        "❌ LOCAL API ERROR:",
+        apiErr.response?.data || apiErr.message,
+      );
 
-    // 🔎 LOCAL API javobini tekshiramiz
-    if (!localResponse.data?.success) {
+      return res.status(502).json({
+        ok: false,
+        message: "Zavod ombori bilan aloqa xatosi",
+        error: apiErr.response?.data || apiErr.message,
+      });
+    }
+
+    /* =========================
+       3️⃣ LOCAL API NATIJANI TEKSHIRISH
+    ========================= */
+    if (!localResponse.data || localResponse.data.success !== true) {
       return res.status(400).json({
         ok: false,
         message: "Zavod omboridan minus qilib bo‘lmadi",
@@ -50,7 +80,7 @@ exports.confirmFactoryOrder = async (req, res) => {
     }
 
     /* =========================
-       3️⃣ HAMMASI OK → STATUSNI O‘ZGARTIRAMIZ
+       4️⃣ HAMMASI OK → STATUSNI O‘ZGARTIRAMIZ
     ========================= */
     order.status = "CONFIRMED";
     await order.save();
@@ -65,15 +95,12 @@ exports.confirmFactoryOrder = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(
-      "confirmFactoryOrder ERROR:",
-      err.response?.data || err.message,
-    );
+    console.error("confirmFactoryOrder FATAL ERROR:", err);
 
     return res.status(500).json({
       ok: false,
-      message: "Zavod ombori bilan aloqa xatosi",
-      error: err.response?.data || err.message,
+      message: "Server xatosi",
+      error: err.message,
     });
   }
 };
@@ -99,6 +126,7 @@ exports.getFactoryOrders = async (req, res) => {
     });
   } catch (err) {
     console.error("getFactoryOrders error:", err);
+
     res.status(500).json({
       ok: false,
       message: "Server xatosi",
