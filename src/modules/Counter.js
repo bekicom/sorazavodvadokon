@@ -5,6 +5,5 @@ const CounterSchema = new mongoose.Schema({
   seq: { type: Number, default: 0 },
 });
 
-// 🔥 OverwriteModelError oldini oladi
 module.exports =
   mongoose.models.Counter || mongoose.model("Counter", CounterSchema);
