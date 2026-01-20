@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Counter = require("./Counter");
 
 /* =========================
    ZAKAS ITEM
@@ -18,10 +19,10 @@ const shopOrderItemSchema = new mongoose.Schema(
     qty: {
       type: Number,
       required: true,
-      min: 0,
+      min: 1,
     },
     unit: {
-      type: String, // dona | kg | litr
+      type: String,
       required: true,
       trim: true,
     },
@@ -34,7 +35,6 @@ const shopOrderItemSchema = new mongoose.Schema(
 ========================= */
 const shopOrderSchema = new mongoose.Schema(
   {
-    /* 🔹 Qaysi dokon */
     shop_name: {
       type: String,
       required: true,
@@ -42,28 +42,24 @@ const shopOrderSchema = new mongoose.Schema(
       enum: ["NAVOIY", "TORAQORGON", "DOSTLIK", "CHUST", "BOSHQA"],
     },
 
-    /* 🔹 Zakas raqami */
     order_no: {
       type: Number,
       unique: true,
       index: true,
     },
 
-    /* 🔹 Mahsulotlar */
     items: {
       type: [shopOrderItemSchema],
       required: true,
       validate: [(v) => v.length > 0, "items bo‘sh bo‘lmasin"],
     },
 
-    /* 🔹 Izoh */
     note: {
       type: String,
       trim: true,
       default: "",
     },
 
-    /* 🔹 Holat */
     status: {
       type: String,
       enum: ["NEW", "CONFIRMED", "REJECTED", "DONE"],
@@ -71,31 +67,20 @@ const shopOrderSchema = new mongoose.Schema(
       index: true,
     },
 
-    /* 🔹 Zavod izohi */
     factory_note: {
       type: String,
       trim: true,
       default: "",
     },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 );
 
 /* =========================
-   AUTO ORDER NO
+   AUTO ORDER NO (TO‘G‘RI)
 ========================= */
 shopOrderSchema.pre("save", async function (next) {
-  if (this.order_no) return
-
-  const Counter = mongoose.model(
-    "Counter",
-    new mongoose.Schema({
-      name: String,
-      seq: Number,
-    }),
-  );
+  if (this.order_no) return next();
 
   const counter = await Counter.findOneAndUpdate(
     { name: "shop_order" },
@@ -104,6 +89,8 @@ shopOrderSchema.pre("save", async function (next) {
   );
 
   this.order_no = counter.seq;
+  next();
 });
 
-module.exports = mongoose.model("ShopOrder", shopOrderSchema);
+module.exports =
+  mongoose.models.ShopOrder || mongoose.model("ShopOrder", shopOrderSchema);
